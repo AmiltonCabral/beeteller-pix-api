@@ -27,14 +27,17 @@ export const initializeDatabase = async () => {
         "campoLivre" TEXT,
         "txId" VARCHAR(255) NOT NULL,
         "dataHoraPagamento" TIMESTAMPTZ NOT NULL,
-
-        -- Stream controll columns
-        "coletada" BOOLEAN DEFAULT FALSE,
-        "coletada_em" TIMESTAMPTZ,
-        "interactionId" VARCHAR(255)
+        "recebedor_ispb" VARCHAR(8) NOT NULL,
       );
     `);
-    console.log("Database init success.");
+
+    // create a compost index
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_recebedor_ispb_coletada
+      ON pix_messages (recebedor_ispb, coletada);
+    `);
+
+    console.log("Database init with success.");
   } catch (err) {
     console.error("Error initializing the Database.", err);
     process.exit(1);
