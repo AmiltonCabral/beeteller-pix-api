@@ -20,21 +20,21 @@ export const initializeDatabase = async () => {
   try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS pix_messages (
-        "endToEndId" VARCHAR(255) PRIMARY KEY,
-        "valor" NUMERIC(12, 2) NOT NULL,
-        "pagador" JSONB NOT NULL,
-        "recebedor" JSONB NOT NULL,
-        "campoLivre" TEXT,
-        "txId" VARCHAR(255) NOT NULL,
-        "dataHoraPagamento" TIMESTAMPTZ NOT NULL,
-        "recebedor_ispb" VARCHAR(8) NOT NULL,
+        end_to_end_id VARCHAR(255) PRIMARY KEY,
+        valor NUMERIC(12, 2) NOT NULL,
+        pagador JSONB NOT NULL,
+        recebedor JSONB NOT NULL,
+        campo_livre TEXT,
+        tx_id VARCHAR(255) NOT NULL,
+        data_hora_pagamento TIMESTAMPTZ NOT NULL,
+        recebedor_ispb VARCHAR(8) NOT NULL
       );
     `);
 
     // create a compost index
     await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_recebedor_ispb_coletada
-      ON pix_messages (recebedor_ispb, coletada);
+      CREATE INDEX IF NOT EXISTS idx_recebedor_ispb
+      ON pix_messages (recebedor_ispb);
     `);
 
     console.log("Database init with success.");

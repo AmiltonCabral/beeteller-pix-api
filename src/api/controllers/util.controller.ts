@@ -1,4 +1,5 @@
 import type { Request, Response } from "express";
+import { pool } from "../../database/db";
 const { faker } = require("@faker-js/faker");
 
 interface PixMessage {
@@ -62,7 +63,10 @@ const createRandomPixMessage = (ispbRecebedor: string): PixMessage => {
 /**
  * Generate N random pix messages where the specified ISPB is the receiver.
  */
-export const generatePixMessages = (req: Request, res: Response): void => {
+export const generatePixMessages = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { ispb, number } = req.params;
   const count = parseInt(number ?? "0", 10);
 
@@ -90,14 +94,33 @@ export const generatePixMessages = (req: Request, res: Response): void => {
       messages.push(createRandomPixMessage(ispb));
     }
 
-    // TODO:
-    // 1. Conectar ao banco de dados.
-    // 2. Inserir o array 'messages' na tabela de mensagens PIX.
-    //    Ex: await PixMessageModel.insertMany(messages);
+    const client = await pool.connect();
+
+    await client.query("BEGIN");
+
+    const insertQuery = `
+            INSERT INTO pix_messages (end_to_end_id, valor, pagador, recebedor, tx_id, data_hora_pagamento, recebedor_ispb)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            -- ON CONFLICT (end_to_end_id) DO NOTHING;
+        `;
+
+    for (const msg of messages) {
+      const values = [
+        msg.endToEndId,
+        msg.valor,
+        JSON.stringify(msg.pagador),
+        JSON.stringify(msg.recebedor),
+        msg.txId,
+        msg.dataHoraPagamento,
+        msg.recebedor.ispb,
+      ];
+      await client.query(insertQuery, values);
+    }
+
+    await client.query("COMMIT");
 
     res.status(201).json({
-      message: `${count} PIX mensages created to the ISPB ${ispb}.`,
-      data: messages,
+      message: `${count} PIX messages inserted on the Database to the ISPB ${ispb}.`,
     });
   } catch (error) {
     const errorCode = `#${Date.now()}`;
@@ -105,11 +128,9 @@ export const generatePixMessages = (req: Request, res: Response): void => {
       `Error generating the messages with code ${errorCode}`,
       error
     );
-    res
-      .status(500)
-      .json({
-        error:
-          "Internal error, please open a ticket and give the code ${errorCode}",
-      });
+    res.status(500).json({
+      error:
+        "Internal error, please open a ticket and give the code ${errorCode}",
+    });
   }
 };
