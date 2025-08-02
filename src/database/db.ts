@@ -27,14 +27,17 @@ export const initializeDatabase = async () => {
         campo_livre TEXT,
         tx_id VARCHAR(255) NOT NULL,
         data_hora_pagamento TIMESTAMPTZ NOT NULL,
-        recebedor_ispb VARCHAR(8) NOT NULL
+        recebedor_ispb VARCHAR(8) NOT NULL,
+        coletada BOOLEAN DEFAULT FALSE,
+        coletada_em TIMESTAMPTZ,
+        interaction_id VARCHAR(255)
       );
     `);
 
     // create a compost index
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_recebedor_ispb
-      ON pix_messages (recebedor_ispb);
+      ON pix_messages (recebedor_ispb, coletada);
     `);
 
     console.log("Database init with success.");
