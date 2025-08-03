@@ -29,7 +29,7 @@ export const initializeDatabase = async () => {
         recebedor_ispb VARCHAR(8) NOT NULL,
         coletada BOOLEAN DEFAULT FALSE,
         coletada_em TIMESTAMPTZ,
-        interaction_id VARCHAR(255)
+        interation_id VARCHAR(255)
       );
     `);
 

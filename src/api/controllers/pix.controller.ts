@@ -1,22 +1,27 @@
 import type { Request, Response } from "express";
-import { addInteraction, containsInteraction } from "../../utils/interaction";
+import {
+  addInteration,
+  containsInteration,
+  removeInteration,
+} from "../../utils/interation";
 import {
   fetchAndLockMessages,
-  generateInteractionId,
+  generateInterationId,
   getLimitFromHeaders,
 } from "../../utils/pix";
 import {
   BATCH_WAIT_INTERVAL_MS,
   LONG_POLLING_TIMEOUT_MS,
 } from "../../utils/constants";
+import { pool } from "../../database/db";
 
 export async function startStream(req: Request, res: Response) {
   const { ispb } = req.params;
 
-  const interactionId = generateInteractionId();
-  const interactionAdded = addInteraction(interactionId);
+  const interationId = generateInterationId();
+  const interationAdded = addInteration(interationId);
 
-  if (!interactionAdded) {
+  if (!interationAdded) {
     return res
       .status(429) // 429 (Too Many Requests)
       .json({
@@ -24,9 +29,9 @@ export async function startStream(req: Request, res: Response) {
       });
   }
 
-  res.setHeader("Pull-Next", `/api/pix/${ispb}/stream/${interactionId}`);
+  res.setHeader("Pull-Next", `/api/pix/${ispb}/stream/${interationId}`);
 
-  return await getMessages(req, res, interactionId);
+  return await getMessages(req, res, interationId);
 }
 
 export const continueStream = async (req: Request, res: Response) => {
@@ -36,14 +41,14 @@ export const continueStream = async (req: Request, res: Response) => {
     return res.status(400).json({ error: "interationId is required." });
   }
 
-  if (!containsInteraction(interationId)) {
+  if (!containsInteration(interationId)) {
     return res.status(400).json({ error: "invalid interationId." });
   }
 
   await getMessages(req, res, interationId);
 };
 
-async function getMessages(req: Request, res: Response, interactionId: string) {
+async function getMessages(req: Request, res: Response, interationId: string) {
   const { ispb } = req.params;
   if (!ispb) return res.status(400).json({ error: "ISPB is required." });
 
@@ -54,7 +59,7 @@ async function getMessages(req: Request, res: Response, interactionId: string) {
 
   // Long-Polling loop
   while (elapsedTime < LONG_POLLING_TIMEOUT_MS) {
-    messages = await fetchAndLockMessages(ispb, limit, interactionId);
+    messages = await fetchAndLockMessages(ispb, limit, interationId);
 
     // If found messages, leave the loop
     if (messages.length > 0) break;
@@ -71,4 +76,39 @@ async function getMessages(req: Request, res: Response, interactionId: string) {
     // 204 (No Content)
     return res.status(204).send();
   }
+}
+
+export async function deleteStream(req: Request, res: Response) {
+  const { ispb, interationId } = req.params;
+  if (!ispb) {
+    return res.status(400).json({ error: "ISPB is required." });
+  }
+  if (!interationId) {
+    return res.status(400).json({ error: "interationId is required." });
+  }
+
+  const query = `
+        DELETE
+        FROM pix_messages
+        WHERE coletada = TRUE
+          AND interation_id = $1
+      `;
+
+  try {
+    await pool.query(query, [interationId]);
+  } catch (error) {
+    const errorCode = `#${Date.now()}`;
+    console.error(
+      `Error generating the messages with code ${errorCode}`,
+      error
+    );
+    res.status(500).json({
+      error:
+        "Internal error, please open a ticket and give the code ${errorCode}",
+    });
+  }
+
+  removeInteration(interationId);
+
+  return res.status(200).send("interationId removed with success");
 }

@@ -2,7 +2,7 @@ import { randomBytes } from "crypto";
 import type { Request } from "express";
 import { pool } from "../database/db";
 
-export function generateInteractionId() {
+export function generateInterationId() {
   return randomBytes(12).toString("hex");
 }
 
@@ -21,13 +21,13 @@ export function getLimitFromHeaders(req: Request) {
 export async function fetchAndLockMessages(
   ispb: string,
   limit: number,
-  interactionId: string
+  interationId: string
 ) {
   const query = `
     UPDATE pix_messages
     SET
         coletada = TRUE,
-        interaction_id = $1,
+        interation_id = $1,
         coletada_em = NOW()
     WHERE end_to_end_id IN (
         SELECT end_to_end_id
@@ -40,7 +40,7 @@ export async function fetchAndLockMessages(
     RETURNING *;
   `;
 
-  const result = await pool.query(query, [interactionId, ispb, limit]);
+  const result = await pool.query(query, [interationId, ispb, limit]);
 
   return result.rows;
 }
