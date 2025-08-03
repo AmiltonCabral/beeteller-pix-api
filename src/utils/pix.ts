@@ -44,19 +44,3 @@ export async function fetchAndLockMessages(
 
   return result.rows;
 }
-
-export async function getActiveStreams(ispb: string | undefined) {
-  const concurrencyCheckQuery = `
-      SELECT COUNT(DISTINCT interaction_id) as active_streams
-      FROM pix_messages
-      WHERE recebedor_ispb = $1
-        AND coletada = TRUE
-        -- AND interaction_id IS NOT NULL
-        AND coletada_em > NOW() - INTERVAL '15 minutes';   -- To consider only recents streams
-    `;
-
-  const concurrencyResult = await pool.query(concurrencyCheckQuery, [ispb]);
-  const activeStreams = parseInt(concurrencyResult.rows[0].active_streams, 10);
-
-  return activeStreams;
-}

@@ -2,6 +2,7 @@ import express from "express";
 import pixRoutes from "./api/routes/pix.routes";
 import utilRoutes from "./api/routes/util.routes";
 import { initializeDatabase } from "./database/db";
+import { initInteraction } from "./utils/interaction";
 import { PORT } from "./utils/constants";
 
 const app = express();
@@ -18,6 +19,7 @@ app.use("/api/util", utilRoutes);
  */
 const startServer = async () => {
   try {
+    await initInteraction();
     await initializeDatabase();
 
     app.listen(PORT, () => {
