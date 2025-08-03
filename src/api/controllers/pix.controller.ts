@@ -1,28 +1,61 @@
 import type { Request, Response } from "express";
+import {
+  BATCH_WAIT_INTERVAL_MS,
+  LONG_POLLING_TIMEOUT_MS,
+  MAX_CONCURRENT_STREAMS,
+} from "../../utils/constants";
+import {
+  fetchAndLockMessages,
+  generateInteractionId,
+  getActiveStreams,
+  getLimitFromHeaders,
+} from "../../utils/pix";
 
-export const startStream = (req: Request, res: Response): void => {
+export async function startStream(req: Request, res: Response) {
   const { ispb } = req.params;
-  const acceptHeader = req.header("Accept");
 
-  // TODO:
-  // 1. Verificar o limite de coletores simultâneos para o ISPB.
-  //    - Se excedido, retornar status 429.
-  // 2. Gerar um 'interactionId' único para este novo stream.
-  // 3. Implementar o long polling para aguardar mensagens.
-  // 4. Buscar mensagens no banco de dados que não foram coletadas.
-  // 5. Formatar a resposta (single ou multipart json) com base no cabeçalho 'Accept'.
-  // 6. Retornar status 200 com as mensagens ou 204 se não houver mensagens após o timeout.
-  // 7. Adicionar o cabeçalho 'Pull-Next' na resposta.
+  const activeStreams = await getActiveStreams(ispb);
 
-  console.log(`ISPB: ${ispb}`);
-  console.log(`Type: ${acceptHeader}`);
+  if (activeStreams >= MAX_CONCURRENT_STREAMS) {
+    return res
+      .status(429) // 429 (Too Many Requests)
+      .json({
+        error: "Limit of max concurrent streams reached, try again later",
+      });
+  }
 
-  const interactionId = "5oj7tm0jow61"; // example
-  const pullNextUrl = `/api/pix/${ispb}/stream/${interactionId}`;
+  return await getMessages(req, res);
+}
 
-  res.setHeader("Pull-Next", pullNextUrl);
-  res.status(200).json({
-    message: `First placeholder for the ISPB stream ${ispb}.`,
-    next_url: pullNextUrl,
-  });
-};
+async function getMessages(req: Request, res: Response) {
+  const { ispb } = req.params;
+  if (!ispb) return res.status(400).json({ error: "ISPB is required." });
+
+  const limit = getLimitFromHeaders(req);
+  const nextInteractionId = generateInteractionId();
+
+  let messages = [];
+  let elapsedTime = 0;
+
+  // Long-Polling loop
+  while (elapsedTime < LONG_POLLING_TIMEOUT_MS) {
+    messages = await fetchAndLockMessages(ispb, limit, nextInteractionId);
+
+    // If found messages, leave the loop
+    if (messages.length > 0) break;
+
+    // If not found, awaits a moment and try again
+    await new Promise((resolve) => setTimeout(resolve, BATCH_WAIT_INTERVAL_MS));
+    elapsedTime += BATCH_WAIT_INTERVAL_MS;
+  }
+
+  res.setHeader("Pull-Next", `/api/pix/${ispb}/stream/${nextInteractionId}`);
+
+  if (messages.length > 0) {
+    const responseData = limit === 1 ? messages[0] : messages;
+    return res.status(200).json(responseData);
+  } else {
+    // 204 (No Content)
+    return res.status(204).send();
+  }
+}

@@ -2,9 +2,9 @@ import express from "express";
 import pixRoutes from "./api/routes/pix.routes";
 import utilRoutes from "./api/routes/util.routes";
 import { initializeDatabase } from "./database/db";
+import { PORT } from "./utils/constants";
 
 const app = express();
-const PORT = 3000;
 
 app.get("/", (_req, res) => {
   res.status(200).send("Hello World!");

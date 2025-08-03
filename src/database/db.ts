@@ -1,14 +1,13 @@
 import { Pool } from "pg";
+import { DB_URI } from "../utils/constants";
 
-require("dotenv").config();
-
-if (!process.env.DB_URI) {
+if (!DB_URI) {
   console.error("FATAL ERROR: DB_URI environment variable not defined.");
   process.exit(1);
 }
 
 export const pool = new Pool({
-  connectionString: process.env.DB_URI,
+  connectionString: DB_URI,
 });
 
 /**
